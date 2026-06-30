@@ -1,0 +1,161 @@
+
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor de Audio a OGG</title>
+
+<style>
+body{
+    margin:0;
+    background:#181818;
+    color:white;
+    font-family:Arial,Helvetica,sans-serif;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.card{
+    width:420px;
+    background:#242424;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 0 20px rgba(0,0,0,.4);
+    text-align:center;
+}
+
+input{
+    width:100%;
+    margin:15px 0;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#2ecc71;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#27ae60;
+}
+
+button:disabled{
+    background:#666;
+    cursor:not-allowed;
+}
+
+#status{
+    margin-top:20px;
+}
+
+audio{
+    width:100%;
+    margin-top:15px;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+
+<h2>🎵 Convertidor a OGG</h2>
+
+<input type="file" id="audio" accept="audio/*">
+
+<button id="convertir">Convertir a .ogg</button>
+
+<p id="status">Selecciona un archivo.</p>
+
+<audio id="player" controls style="display:none"></audio>
+
+</div>
+
+<script type="module">
+
+import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js";
+import { fetchFile } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
+
+const ffmpeg = new FFmpeg();
+
+const boton = document.getElementById("convertir");
+const estado = document.getElementById("status");
+const player = document.getElementById("player");
+
+let cargado = false;
+
+async function cargar(){
+
+    if(cargado) return;
+
+    estado.textContent="Cargando FFmpeg...";
+
+    await ffmpeg.load({
+        coreURL:"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
+        wasmURL:"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm"
+    });
+
+    cargado=true;
+
+    estado.textContent="FFmpeg listo.";
+}
+
+boton.onclick = async ()=>{
+
+    const archivo=document.getElementById("audio").files[0];
+
+    if(!archivo){
+        alert("Selecciona un audio.");
+        return;
+    }
+
+    boton.disabled=true;
+
+    await cargar();
+
+    estado.textContent="Convirtiendo...";
+
+    await ffmpeg.writeFile("entrada", await fetchFile(archivo));
+
+    await ffmpeg.exec([
+        "-i",
+        "entrada",
+        "-c:a",
+        "libvorbis",
+        "-q:a",
+        "5",
+        "salida.ogg"
+    ]);
+
+    const data = await ffmpeg.readFile("salida.ogg");
+
+    const blob = new Blob([data.buffer], {type:"audio/ogg"});
+
+    const url = URL.createObjectURL(blob);
+
+    player.src=url;
+    player.style.display="block";
+
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=archivo.name.replace(/\.[^/.]+$/, "")+".ogg";
+    a.click();
+
+    estado.textContent="✅ Conversión completada.";
+
+    boton.disabled=false;
+
+};
+
+</script>
+
+</body>
+</html>
